@@ -306,6 +306,10 @@ YLoader {
 
         function onOcrStop(scanType) {
             console.warn("YScanWordsResultLoader.qml====ocr_stop scanType: ", scanType)
+            if (qmlGlobal.currentPageIndex === PageIndex.AIAssistant) {
+                hidden()
+                return
+            }
             logManager.sendHttpLog(scanType ? "action=scansearch_click" : "action=pointscan_click")
             qmlGlobal.canAutoAddToWb = true
             id_start_delay_hide_dict.stop()

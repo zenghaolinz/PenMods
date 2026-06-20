@@ -106,11 +106,7 @@ YBackButtonPage {
                 keyboardPage.todoDestroy()
             })
             keyboardPage.inputFinished.connect(function(content) {
-                if (content.trim().length === 0)
-                    return
-                id_messages.append({"role": "user", "content": content})
-                id_messages.append({"role": "assistant", "content": ""})
-                aiAssistant.send(content)
+                submitMessage(content)
             })
             keyboardPage.placeHolderText = "请输入问题…"
             keyboardPage.show()
@@ -133,6 +129,20 @@ YBackButtonPage {
         }
     }
 
+    function submitMessage(content) {
+        const text = content.trim()
+        if (text.length === 0)
+            return
+        if (aiAssistant.requesting) {
+            qmlGlobal.showToast("请等待当前回答完成", YColors.grayNormal)
+            return
+        }
+        id_messages.append({"role": "user", "content": text})
+        id_messages.append({"role": "assistant", "content": ""})
+        aiAssistant.send(text)
+        id_message_list.positionViewAtEnd()
+    }
+
     Connections {
         target: aiAssistant
         function onReplyChunkChanged(delta) {
@@ -143,6 +153,20 @@ YBackButtonPage {
                 id_message_list.positionViewAtEnd()
             }
         }
+    }
+
+    Connections {
+        target: systemBase
+        ignoreUnknownSignals: true
+        function onOcrStop(scanType) {
+            if (id_ai_chat.visible && systemBase.ocrCompletedResult.length > 0)
+                submitMessage(systemBase.ocrCompletedResult)
+        }
+    }
+
+    onVisibleChanged: {
+        if (visible)
+            qmlGlobal.currentPageIndex = PageIndex.AIAssistant
     }
 
 }

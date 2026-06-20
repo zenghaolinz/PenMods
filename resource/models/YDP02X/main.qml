@@ -253,7 +253,7 @@ YMainWindow {
             case YEnum.PageIndex.PowerOff:
                 showPage("YPowerOffPage")
                 break
-            case MEnum.PG_NewBing:
+            case PageIndex.AIAssistant:
                 showPage("AIChatPage")
                 break
             }

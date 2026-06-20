@@ -56,7 +56,7 @@ Item {
                                         YColors.grayNormal)
                     return
                 }
-                qmlGlobal.requestShowPage(MEnum.PG_NewBing)
+                qmlGlobal.requestShowPage(PageIndex.AIAssistant)
             }
         }
     }

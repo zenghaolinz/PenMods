@@ -48,7 +48,8 @@ class ResourceTreeTests(unittest.TestCase):
 
 
 class PortedResourceTests(unittest.TestCase):
-    RESOURCE = Path(__file__).parents[1] / "resource/models/YDP02X"
+    ROOT = Path(__file__).parents[1]
+    RESOURCE = ROOT / "resource/models/YDP02X"
 
     def read(self, relative: str) -> str:
         return (self.RESOURCE / relative).read_text(encoding="utf-8")
@@ -73,10 +74,18 @@ class PortedResourceTests(unittest.TestCase):
         self.assertIn("aiAssistant.apiKey", setting)
         self.assertNotIn("text: aiAssistant.apiKey", setting)
 
-    def test_ai_route_is_added_without_removing_official_routes(self):
+    def test_ai_route_uses_registered_mod_page(self):
+        enum_header = (self.ROOT / "src/mod/Mod.h").read_text(encoding="utf-8")
+        self.assertIn("AIAssistant", enum_header)
+
         main = self.read("main.qml")
-        self.assertIn("case MEnum.PG_NewBing:", main)
+        title_bar = self.read("qml/components/YMainTitleBar.qml")
+        chat = self.read("qml/AIChatPage.qml")
+        self.assertIn("case PageIndex.AIAssistant:", main)
         self.assertIn('showPage("AIChatPage")', main)
+        self.assertIn("requestShowPage(PageIndex.AIAssistant)", title_bar)
+        self.assertIn("currentPageIndex = PageIndex.AIAssistant", chat)
+        self.assertNotIn("MEnum.PG_NewBing", main + title_bar + chat)
         for route in (
             "YEnum.PageIndex.Dict",
             "YEnum.PageIndex.TextBook",
@@ -93,6 +102,28 @@ class PortedResourceTests(unittest.TestCase):
         self.assertIn("fileManager.remove", page)
         self.assertIn("textReader.open", page)
         self.assertIn("videoPlayer.open", page)
+
+    def test_ai_page_submits_fresh_scan_and_global_loader_yields(self):
+        chat = self.read("qml/AIChatPage.qml")
+        loader = self.read("qml/components/YScanWordsResultLoader.qml")
+        self.assertIn("function submitMessage(content)", chat)
+        self.assertIn("function onOcrStop(scanType)", chat)
+        self.assertIn("submitMessage(systemBase.ocrCompletedResult)", chat)
+        self.assertIn(
+            "qmlGlobal.currentPageIndex === PageIndex.AIAssistant", loader
+        )
+        ai_guard = loader.index(
+            "qmlGlobal.currentPageIndex === PageIndex.AIAssistant"
+        )
+        self.assertIn("return", loader[ai_guard : ai_guard + 300])
+
+    def test_readme_distinguishes_upstream_and_port_changes(self):
+        readme = (self.ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("https://github.com/PenUniverse/PenMods", readme)
+        self.assertIn("GPL-3.0", readme)
+        self.assertIn("YDP02X 2.1.2 适配修改", readme)
+        self.assertIn("原项目原创", readme)
+        self.assertIn("本分支修改", readme)
 
 
 if __name__ == "__main__":
