@@ -14,17 +14,22 @@ class ColumnDBLimiter : public QObject, public Singleton<ColumnDBLimiter> {
     Q_OBJECT
 
     Q_PROPERTY(bool patch READ getPatch WRITE setPatch NOTIFY patchChanged);
+    Q_PROPERTY(int limit READ getLimit WRITE setLimit NOTIFY limitChanged)
 
 public:
     [[nodiscard]] bool getPatch() const;
 
     void setPatch(bool);
 
+    void setLimit(int);
+
     [[nodiscard]] int getLimit() const;
 
 signals:
 
     void patchChanged();
+
+    void limitChanged();
 
 private:
     friend Singleton<ColumnDBLimiter>;
@@ -34,6 +39,7 @@ private:
     json        mCfg;
 
     bool mPatch;
+    int  mLimit;
 };
 
 } // namespace mod

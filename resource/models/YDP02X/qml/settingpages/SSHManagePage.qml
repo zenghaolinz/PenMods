@@ -31,7 +31,12 @@ YSettingItemPage {
             YSettingAboutClickableItem {
                 id: run_stat
                 title: "运行状态"
-                iconComponent.source: serviceManager.sshStatus ? res.get("color-success") : res.get("color-notice")
+                iconComponent: YImage {
+                    sourceSize: Qt.size(24, 24)
+                    source: serviceManager.sshStatus
+                            ? res.get("color-success")
+                            : res.get("color-notice")
+                }
                 onClicked: {
                     if (serviceManager.sshStatus) {
                         serviceManager.stopSsh()

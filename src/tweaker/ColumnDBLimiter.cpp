@@ -10,6 +10,8 @@
 
 #include <QQmlContext>
 
+#include <algorithm>
+
 #define LIMIT (80)
 
 namespace mod {
@@ -18,24 +20,33 @@ ColumnDBLimiter::ColumnDBLimiter() {
 
     mCfg = Config::getInstance().read(mClassName);
 
-    mPatch = mCfg["patch"];
+    mPatch = mCfg.value("patch", true);
+    mLimit = std::clamp(mCfg.value("limit", mPatch ? LIMIT : 10), 10, 100);
 
     connect(&Event::getInstance(), &Event::beforeUiInitialization, [this](QQuickView& view, QQmlContext* context) {
         context->setContextProperty("columnDb", this);
     });
 }
 
-int ColumnDBLimiter::getLimit() const { return mPatch ? LIMIT : 10; }
+int ColumnDBLimiter::getLimit() const { return mLimit; }
 
 bool ColumnDBLimiter::getPatch() const { return mPatch; }
 
-void ColumnDBLimiter::setPatch(bool val) {
-    if (mPatch != val) {
-        mPatch        = val;
-        mCfg["patch"] = val;
-        WRITE_CFG;
-        emit patchChanged();
-    }
+void ColumnDBLimiter::setPatch(bool val) { setLimit(val ? LIMIT : 10); }
+
+void ColumnDBLimiter::setLimit(int val) {
+    val = std::clamp(val, 10, 100);
+    auto patch = val > 10;
+    if (mLimit == val && mPatch == patch) return;
+
+    auto patchUpdated = mPatch != patch;
+    mLimit            = val;
+    mPatch            = patch;
+    mCfg["limit"]     = val;
+    mCfg["patch"]     = patch;
+    WRITE_CFG;
+    emit limitChanged();
+    if (patchUpdated) emit patchChanged();
 }
 
 } // namespace mod
@@ -50,12 +61,12 @@ PEN_HOOK(
     int    limit,
     bool   a6
 ) {
-    limit = LIMIT;
+    limit = mod::ColumnDBLimiter::getInstance().getLimit();
     return origin(self, a2, a3, a4, limit, a6);
 }
 
 PEN_HOOK(uint64, _ZNK10YHistoryDB9loadItemsExi, uint64 self, uint64 a2, uint32 limit) {
-    limit = LIMIT;
+    limit = mod::ColumnDBLimiter::getInstance().getLimit();
     return origin(self, a2, limit);
 }
 
@@ -69,12 +80,12 @@ PEN_HOOK(
     uint32 a5,
     uint32 a6
 ) {
-    limit = LIMIT;
+    limit = mod::ColumnDBLimiter::getInstance().getLimit();
     return origin(a1, a2, a3, limit, a5, a6);
 }
 
 PEN_HOOK(uint64, _ZNK10YReadingDB17loadReadingSeriesEiibb, uint64 self, int a2, int limit, bool a4, bool a5) {
-    limit = LIMIT;
+    limit = mod::ColumnDBLimiter::getInstance().getLimit();
     return origin(self, a2, limit, a4, a5);
 }
 
@@ -89,17 +100,17 @@ PEN_HOOK(
     bool   a6,
     bool   a7
 ) {
-    limit = LIMIT;
+    limit = mod::ColumnDBLimiter::getInstance().getLimit();
     return origin(self, a2, a3, a4, limit, a6, a7);
 }
 
 PEN_HOOK(uint64, _ZNK11YTextBookDb9loadBooksERK7QStringiib, uint64 self, uint64 a2, int a3, int limit, bool a5) {
-    limit = LIMIT;
+    limit = mod::ColumnDBLimiter::getInstance().getLimit();
     return origin(self, a2, a3, limit, a5);
 }
 
 PEN_HOOK(uint64, _ZNK11YTextBookDb9loadTasksERK7QStringiib, uint64 self, uint64 a2, int a3, int limit, bool a5) {
-    limit = LIMIT;
+    limit = mod::ColumnDBLimiter::getInstance().getLimit();
     return origin(self, a2, a3, limit, a5);
 }
 
@@ -115,7 +126,7 @@ PEN_HOOK(
     uint32 a6,
     uint32 a7
 ) {
-    limit = LIMIT;
+    limit = mod::ColumnDBLimiter::getInstance().getLimit();
     return origin(self, a2, a3, limit, a5, a6, a7);
 }
 

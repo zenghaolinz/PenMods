@@ -151,6 +151,40 @@ class PortedResourceTests(unittest.TestCase):
         self.assertIn("emit mod::KeyBoard::getInstance().scanFinished(content)", keyboard_hook)
         self.assertIn("inputPageShowingEv", keyboard_hook)
 
+    def test_column_database_exposes_persisted_limit_to_qml_and_hooks(self):
+        header = (self.ROOT / "src/tweaker/ColumnDBLimiter.h").read_text(
+            encoding="utf-8"
+        )
+        source = (self.ROOT / "src/tweaker/ColumnDBLimiter.cpp").read_text(
+            encoding="utf-8"
+        )
+        page = self.read("qml/settingpages/ColumnDbPage.qml")
+        self.assertIn(
+            "Q_PROPERTY(int limit READ getLimit WRITE setLimit NOTIFY limitChanged)",
+            header,
+        )
+        self.assertIn("void setLimit(int);", header)
+        self.assertIn("void limitChanged();", header)
+        self.assertIn('mCfg["limit"]', source)
+        self.assertIn("void ColumnDBLimiter::setLimit(int val)", source)
+        self.assertGreaterEqual(source.count("getInstance().getLimit()"), 7)
+        self.assertNotIn("limit = LIMIT;", source)
+        self.assertIn("columnDb.limit", page)
+
+    def test_developer_service_pages_use_valid_live_status_icons(self):
+        developer = self.read("qml/settingpages/DeveloperSettingPage.qml")
+        adb_page = self.read("qml/settingpages/ADBManagePage.qml")
+        ssh_page = self.read("qml/settingpages/SSHManagePage.qml")
+        self.assertIn('id_pop_container.show("ADBManagePage")', developer)
+        self.assertIn('id_pop_container.show("SSHManagePage")', developer)
+        for page, status in (
+            (adb_page, "serviceManager.adbStatus"),
+            (ssh_page, "serviceManager.sshStatus"),
+        ):
+            self.assertNotIn("iconComponent.source", page)
+            self.assertIn("iconComponent: YImage", page)
+            self.assertIn(status, page)
+
     def test_readme_distinguishes_upstream_and_port_changes(self):
         readme = (self.ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("https://github.com/PenUniverse/PenMods", readme)
