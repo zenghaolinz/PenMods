@@ -3,15 +3,16 @@ add_rules('mode.release', 'mode.debug')
 add_requires('spdlog        1.15.3')
 add_requires('elfio         3.12')
 add_requires('nlohmann_json 3.12.0')
-add_requires('dobby         2023.4.14')
-add_requires('lame          3.100', {
-    -- DictPen's buildroot exists lame v3.100,
-    -- so we use it as a shared library.
-    configs = {shared = true}
-})
-add_requires('libxcrypt     4.4.38', {
-    configs = {shared = true}
-})
+-- TEMP(build-verify): dobby/lame/libxcrypt provided as system arm64 libs
+-- add_requires('dobby         2023.4.14')
+-- add_requires('lame          3.100', {
+--     -- DictPen's buildroot exists lame v3.100,
+--     -- so we use it as a shared library.
+--     configs = {shared = true}
+-- })
+-- add_requires('libxcrypt     4.4.38', {
+--     configs = {shared = true}
+-- })
 
 --- options
 
@@ -85,11 +86,14 @@ target('PenMods')
     add_packages(
         'spdlog',
         'elfio',
-        'nlohmann_json',
-        'dobby',
-        'lame',
-        -- crypt, src/helper/ServiceManager.cpp
-        'libxcrypt')
+        'nlohmann_json')
+    -- TEMP(build-verify): link system arm64 libs for dobby/lame/libxcrypt
+    add_includedirs('/opt/arm64-3rdparty/include')
+    add_linkdirs('/usr/lib/aarch64-linux-gnu')
+    add_links('dobby', 'mp3lame')
+    -- crypt() is loaded at runtime via dlsym in ServiceManager.cpp, so the .so
+    -- has NO libcrypt dependency (avoids device's old libcrypt.so.1 lacking
+    -- XCRYPT_2.0, and avoids Ubuntu's new libcrypt.a pulling in __isoc23_strtoul).
     set_pcxxheader('src/base/Base.h')
     add_includedirs(
         'src',
@@ -115,5 +119,8 @@ target('QrcExporter')
     add_rules('qt.shared')
     add_files('resource/exporter/**.cpp')
     add_packages(
-        'spdlog',
-        'dobby')
+        'spdlog')
+    -- TEMP(build-verify): system arm64 dobby
+    add_includedirs('/opt/arm64-3rdparty/include')
+    add_linkdirs('/usr/lib/aarch64-linux-gnu')
+    add_links('dobby')

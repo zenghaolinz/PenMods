@@ -9,11 +9,33 @@
 #include "common/Event.h"
 #include "common/Utils.h"
 
+#include <dlfcn.h>
 #include <QFile>
 #include <QQmlContext>
 #include <QRandomGenerator>
 
 namespace mod {
+
+// Load crypt() at runtime via dlsym so the .so has no static/dynamic
+// dependency on libcrypt. This sidesteps two device-compatibility issues:
+//  - the device's libcrypt.so.1 lacks the XCRYPT_2.0 version symbol that
+//    newer libxcrypt attaches, causing dlopen to fail on version mismatch;
+//  - Ubuntu's libcrypt.a is built against glibc 2.39 and pulls in
+//    __isoc23_strtoul, which the device's glibc 2.27 does not provide.
+// dlsym resolves the plain `crypt` symbol regardless of version tagging.
+static char* _runtime_crypt(const char* phrase, const char* setting) {
+    using crypt_fn = char* (*)(const char*, const char*);
+    static crypt_fn fn = nullptr;
+    if (!fn) {
+        // libcrypt.so.1 on the device; fall back to libcrypt.so / libc.
+        void* h = dlopen("libcrypt.so.1", RTLD_LAZY | RTLD_GLOBAL);
+        if (!h) h = dlopen("libcrypt.so", RTLD_LAZY | RTLD_GLOBAL);
+        if (!h) h = dlopen(nullptr, RTLD_LAZY); // search main process
+        if (h) fn = reinterpret_cast<crypt_fn>(dlsym(h, "crypt"));
+    }
+    if (!fn) return nullptr;
+    return fn(phrase, setting);
+}
 
 ServiceManager::ServiceManager() {
 
@@ -135,8 +157,8 @@ bool ServiceManager::setSshRootPasswd(const QString& val) {
             } else {
                 auto  salt = _getRandomString(6);
                 char* crypted =
-                    crypt(val.toLocal8Bit().data(), QString("$1$%1$").arg(QString::fromStdString(salt)).toUtf8());
-                if (crypted[0] == '*') {
+                    _runtime_crypt(val.toLocal8Bit().data(), QString("$1$%1$").arg(QString::fromStdString(salt)).toUtf8());
+                if (!crypted || crypted[0] == '*') {
                     showToast("无法加密密码", "#E9900C");
                     return false;
                 }

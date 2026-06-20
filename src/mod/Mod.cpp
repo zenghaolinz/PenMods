@@ -119,6 +119,8 @@ PEN_HOOK(bool, license_verify) { return true; }
 #include "base/SymDB.h"
 #include "base/YPointer.h"
 
+#include "ai/AIAssistant.h"
+
 #include "common/Downloader.h"
 #include "common/Event.h"
 #include "common/Resource.h"
@@ -185,6 +187,9 @@ __attribute__((constructor)) static void BeforeMain() {
     INSTANCE(Downloader);
     INSTANCE(Event);
     INSTANCE(Resource);
+
+    // ai (after Event so beforeUiInitialization is ready to connect)
+    INSTANCE(AIAssistant);
 
     // filemanager
     INSTANCE(filemanager::MusicPlayer);
