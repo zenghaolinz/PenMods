@@ -73,9 +73,6 @@ YBackground {
             logManager.sendHttpLog("action=home_settings_click")
             qmlGlobal.requestShowPage(YEnum.PageIndex.Setting)
             break
-        case PageIndex.AIAssistant:
-            openAIAssistant()
-            break
         case YEnum.PageIndex.PowerOff:
             id_page_pop_helper.show("YPowerOffPage")
             qmlGlobal.requestShowPage(YEnum.PageIndex.PowerOff)
@@ -114,10 +111,7 @@ YBackground {
                 width: 40
                 height: 40
                 sourceSize: Qt.size(40, 40)
-                source: pageIndex === PageIndex.AIAssistant
-                        ? res.get("new-bing-icon")
-                        : ("image://icons/%1.png").arg(iconFg)
-                fillMode: Image.PreserveAspectFit
+                imageName: iconFg
             }
 
             YText {
@@ -146,8 +140,6 @@ YBackground {
                         return YTranslateText.history
                     case YEnum.PageIndex.Setting:
                         return YTranslateText.settings
-                    case PageIndex.AIAssistant:
-                        return "AI 助手"
                     default:
                         return ""
                     }
@@ -169,7 +161,6 @@ YBackground {
         id: mainMenuModel
         Component.onCompleted: {
             append({iconFg: "home-dict", pageIndex: YEnum.PageIndex.Dict})
-            append({iconFg: "home-speech", pageIndex: PageIndex.AIAssistant})
             if (qmlGlobal.checkFeature(YEnum.FEATURE_ASSISTANT)) {
                 append({iconFg: "home-speech", pageIndex: YEnum.PageIndex.Speech})
             }

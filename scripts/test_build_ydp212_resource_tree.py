@@ -74,7 +74,7 @@ class PortedResourceTests(unittest.TestCase):
         self.assertIn("aiAssistant.apiKey", setting)
         self.assertNotIn("text: aiAssistant.apiKey", setting)
 
-    def test_ai_route_has_two_local_entries_without_network_gate(self):
+    def test_ai_route_stays_outside_firmware_home_menu(self):
         enum_header = (self.ROOT / "src/mod/Mod.h").read_text(encoding="utf-8")
         self.assertIn("AIAssistant", enum_header)
 
@@ -87,8 +87,6 @@ class PortedResourceTests(unittest.TestCase):
         self.assertIn("signal showAIAssistant()", index_page)
         self.assertIn("function openAIAssistant()", index_page)
         self.assertIn("showAIAssistant()", index_page)
-        self.assertIn("pageIndex: PageIndex.AIAssistant", index_page)
-        self.assertIn("case PageIndex.AIAssistant:", index_page)
         self.assertIn("id_title_bar.openAIAssistant()", title_bar)
         self.assertIn("parent.openAIAssistant()", title_bar)
         self.assertIn("id_container_index.openAIAssistant()", index_page)
@@ -99,6 +97,14 @@ class PortedResourceTests(unittest.TestCase):
         ]
         self.assertNotIn("wifiManager.internetConnect", ai_button)
         self.assertNotIn("requestShowPage(PageIndex.AIAssistant)", title_bar)
+        menu_model = index_page[index_page.index("id: mainMenuModel") :]
+        self.assertNotIn("PageIndex.AIAssistant", menu_model)
+        for page in ("Dict", "Fav", "History", "Setting"):
+            self.assertIn(
+                f'append({{iconFg: "home-{page.lower() if page != "Setting" else "setting"}", '
+                f"pageIndex: YEnum.PageIndex.{page}}})",
+                menu_model,
+            )
         self.assertIn("currentPageIndex = PageIndex.AIAssistant", chat)
         self.assertNotIn("MEnum.PG_NewBing", main + title_bar + chat)
         for route in (
