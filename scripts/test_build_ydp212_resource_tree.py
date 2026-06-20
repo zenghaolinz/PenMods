@@ -74,16 +74,31 @@ class PortedResourceTests(unittest.TestCase):
         self.assertIn("aiAssistant.apiKey", setting)
         self.assertNotIn("text: aiAssistant.apiKey", setting)
 
-    def test_ai_route_uses_registered_mod_page(self):
+    def test_ai_route_has_two_local_entries_without_network_gate(self):
         enum_header = (self.ROOT / "src/mod/Mod.h").read_text(encoding="utf-8")
         self.assertIn("AIAssistant", enum_header)
 
         main = self.read("main.qml")
+        index_page = self.read("qml/YIndexPage.qml")
         title_bar = self.read("qml/components/YMainTitleBar.qml")
         chat = self.read("qml/AIChatPage.qml")
-        self.assertIn("case PageIndex.AIAssistant:", main)
+        self.assertIn("onShowAIAssistant:", main)
         self.assertIn('showPage("AIChatPage")', main)
-        self.assertIn("requestShowPage(PageIndex.AIAssistant)", title_bar)
+        self.assertIn("signal showAIAssistant()", index_page)
+        self.assertIn("function openAIAssistant()", index_page)
+        self.assertIn("showAIAssistant()", index_page)
+        self.assertIn("pageIndex: PageIndex.AIAssistant", index_page)
+        self.assertIn("case PageIndex.AIAssistant:", index_page)
+        self.assertIn("id_title_bar.openAIAssistant()", title_bar)
+        self.assertIn("parent.openAIAssistant()", title_bar)
+        self.assertIn("id_container_index.openAIAssistant()", index_page)
+        ai_button = title_bar[
+            title_bar.index("id: id_ai_assistant_icon") : title_bar.index(
+                "id: id_icon_container"
+            )
+        ]
+        self.assertNotIn("wifiManager.internetConnect", ai_button)
+        self.assertNotIn("requestShowPage(PageIndex.AIAssistant)", title_bar)
         self.assertIn("currentPageIndex = PageIndex.AIAssistant", chat)
         self.assertNotIn("MEnum.PG_NewBing", main + title_bar + chat)
         for route in (

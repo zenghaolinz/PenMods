@@ -32,6 +32,10 @@ YMainWindow {
 
     YIndexPage {
         id: id_index_page
+        onShowAIAssistant: {
+            console.log("main.qml===onShowAIAssistant")
+            showPage("AIChatPage")
+        }
     }
 
     YStackView {
@@ -252,9 +256,6 @@ YMainWindow {
                 break
             case YEnum.PageIndex.PowerOff:
                 showPage("YPowerOffPage")
-                break
-            case PageIndex.AIAssistant:
-                showPage("AIChatPage")
                 break
             }
         }

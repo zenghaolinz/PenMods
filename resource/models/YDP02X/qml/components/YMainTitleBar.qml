@@ -5,11 +5,16 @@ import "../commons"
 import "../i18n"
 
 Item {
+    id: id_title_bar
     anchors.fill: parent
     anchors.leftMargin: 10
     anchors.rightMargin: 10
 
     property color portraitBorderColor: "#000000"
+
+    function openAIAssistant() {
+        parent.openAIAssistant()
+    }
 
     YUserPortrait {
         id: id_portrait_icon
@@ -50,13 +55,10 @@ Item {
         YMouseArea {
             anchors.fill: parent
             anchors.margins: -6
+            objectName: "YMainTitleBar.qml_id_ai_assistant_button"
             onClicked: {
-                if (!wifiManager.internetConnect) {
-                    qmlGlobal.showToast(YTranslateText.networkAbnormalPleaseCheck,
-                                        YColors.grayNormal)
-                    return
-                }
-                qmlGlobal.requestShowPage(PageIndex.AIAssistant)
+                console.log("YMainTitleBar.qml===open AI assistant")
+                id_title_bar.openAIAssistant()
             }
         }
     }

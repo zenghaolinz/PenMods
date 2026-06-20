@@ -11,6 +11,13 @@ YBackground {
     id: id_container_index
     anchors.fill: parent
 
+    signal showAIAssistant()
+
+    function openAIAssistant() {
+        console.log("YIndexPage.qml===openAIAssistant")
+        showAIAssistant()
+    }
+
     function delayInitMainTitleBar(){
         id_main_titlebar_loader.source = "components/YMainTitleBar.qml"
         id_main_titlebar_loader.active = true
@@ -20,6 +27,10 @@ YBackground {
         id: id_main_titlebar_loader
         width: parent.width
         height: 50
+
+        function openAIAssistant() {
+            id_container_index.openAIAssistant()
+        }
     }
 
     function mainMenuClicked(index) {
@@ -62,6 +73,9 @@ YBackground {
             logManager.sendHttpLog("action=home_settings_click")
             qmlGlobal.requestShowPage(YEnum.PageIndex.Setting)
             break
+        case PageIndex.AIAssistant:
+            openAIAssistant()
+            break
         case YEnum.PageIndex.PowerOff:
             id_page_pop_helper.show("YPowerOffPage")
             qmlGlobal.requestShowPage(YEnum.PageIndex.PowerOff)
@@ -100,7 +114,10 @@ YBackground {
                 width: 40
                 height: 40
                 sourceSize: Qt.size(40, 40)
-                imageName: iconFg
+                source: pageIndex === PageIndex.AIAssistant
+                        ? res.get("new-bing-icon")
+                        : ("image://icons/%1.png").arg(iconFg)
+                fillMode: Image.PreserveAspectFit
             }
 
             YText {
@@ -129,6 +146,8 @@ YBackground {
                         return YTranslateText.history
                     case YEnum.PageIndex.Setting:
                         return YTranslateText.settings
+                    case PageIndex.AIAssistant:
+                        return "AI 助手"
                     default:
                         return ""
                     }
@@ -150,6 +169,7 @@ YBackground {
         id: mainMenuModel
         Component.onCompleted: {
             append({iconFg: "home-dict", pageIndex: YEnum.PageIndex.Dict})
+            append({iconFg: "home-speech", pageIndex: PageIndex.AIAssistant})
             if (qmlGlobal.checkFeature(YEnum.FEATURE_ASSISTANT)) {
                 append({iconFg: "home-speech", pageIndex: YEnum.PageIndex.Speech})
             }
