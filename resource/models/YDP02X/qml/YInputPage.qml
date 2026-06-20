@@ -118,6 +118,17 @@ YPage {
 
 
     Connections {
+        target: keyBoard
+        ignoreUnknownSignals: true
+        enabled: id_input_page.visible
+        function onScanFinished(result) {
+            if (result.length > 0) {
+                id_input_text_title_area.enterChar(result)
+            }
+        }
+    }
+
+    Connections {
         target: qmlGlobal
         ignoreUnknownSignals: true
         enabled: id_input_page.visible

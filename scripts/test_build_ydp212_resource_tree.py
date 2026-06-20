@@ -138,6 +138,19 @@ class PortedResourceTests(unittest.TestCase):
         )
         self.assertIn("return", loader[ai_guard : ai_guard + 300])
 
+    def test_shared_keyboard_inserts_scan_at_cursor(self):
+        input_page = self.read("qml/YInputPage.qml")
+        keyboard_hook = (self.ROOT / "src/tweaker/KeyBoard.cpp").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("target: keyBoard", input_page)
+        self.assertIn("function onScanFinished(result)", input_page)
+        self.assertIn("enabled: id_input_page.visible", input_page)
+        self.assertIn("result.length > 0", input_page)
+        self.assertIn("id_input_text_title_area.enterChar(result)", input_page)
+        self.assertIn("emit mod::KeyBoard::getInstance().scanFinished(content)", keyboard_hook)
+        self.assertIn("inputPageShowingEv", keyboard_hook)
+
     def test_readme_distinguishes_upstream_and_port_changes(self):
         readme = (self.ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("https://github.com/PenUniverse/PenMods", readme)
