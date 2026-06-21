@@ -9,7 +9,7 @@ AI_DEFAULTS = {
     "provider_index": 0,
     "base_url": "https://api.deepseek.com",
     "api_key": "",
-    "model": "deepseek-chat",
+    "model": "v4-flash",
     "temperature": 0.7,
     "system_prompt": "你是有道词典笔的 AI 助手，请简洁准确地回答问题。",
 }
@@ -55,6 +55,26 @@ class ConfigMigrationTests(unittest.TestCase):
         self.assertIn('if (data.at("version") == VERSION_CONFIG)', cpp)
         self.assertIn("addMissing", cpp)
         self.assertNotIn('data["ai"]["api_key"]        = ""', cpp)
+
+    def test_deepseek_default_and_legacy_model_migration(self):
+        header = (
+            Path(__file__).parents[1] / "src/ai/AIAssistant.h"
+        ).read_text(encoding="utf-8")
+        source = (
+            Path(__file__).parents[1] / "src/ai/AIAssistant.cpp"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"DeepSeek",   "https://api.deepseek.com",                          "v4-flash"', header)
+        self.assertIn('mModel == "deepseek-chat"', source)
+        self.assertIn('mCfg["model"] = "v4-flash"', source)
+
+    def test_reasoning_content_is_not_shown_or_saved(self):
+        source = (
+            Path(__file__).parents[1] / "src/ai/AIAssistant.cpp"
+        ).read_text(encoding="utf-8")
+        reasoning_block = source.split('if (delta.contains("reasoning_content")', 1)[1]
+        reasoning_block = reasoning_block.split("}", 1)[0]
+        self.assertNotIn("mAccumulatedReply +=", reasoning_block)
+        self.assertNotIn("emit replyChunkChanged", reasoning_block)
 
 
 if __name__ == "__main__":

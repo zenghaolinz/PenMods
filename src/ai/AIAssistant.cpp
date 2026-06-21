@@ -30,6 +30,14 @@ AIAssistant::AIAssistant() : Logger("AIAssistant") {
     mTemperature   = mCfg["temperature"];
     mSystemPrompt  = QString::fromStdString(mCfg["system_prompt"]);
 
+    // Migrate only the retired DeepSeek default. Preserve every custom model
+    // selected by the user and models belonging to other providers.
+    if (mProviderIndex == 0 && mModel == "deepseek-chat") {
+        mModel        = "v4-flash";
+        mCfg["model"] = "v4-flash";
+        WRITE_CFG;
+    }
+
     mNam = new QNetworkAccessManager(this);
 
     // Seed the system message once the prompt is known.
@@ -330,12 +338,11 @@ void AIAssistant::_drainSseBuffer() {
                 mAccumulatedReply += piece;
                 emit replyChunkChanged(piece);
             }
-            // Reasoning models (e.g. deepseek-reasoner) stream the chain-of-thought
-            // separately; surface it too so the user sees live progress.
+            // Reasoning is intentionally consumed but never shown or stored in
+            // conversation history. Only the model's final content reaches QML.
             if (delta.contains("reasoning_content") && !delta["reasoning_content"].is_null()) {
-                QString piece = QString::fromStdString(delta["reasoning_content"].get<std::string>());
-                mAccumulatedReply += piece;
-                emit replyChunkChanged(piece);
+                // Keep this branch explicit for OpenAI-compatible providers
+                // that send reasoning and final content in separate fields.
             }
         } catch (const std::exception& e) {
             // A malformed chunk should not abort the whole stream.
