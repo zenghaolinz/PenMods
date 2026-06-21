@@ -94,7 +94,7 @@ Config::Config() : Logger("Config") {
             {"provider_index", 0},
             {"base_url", "https://api.deepseek.com"},
             {"api_key", ""},
-            {"model", "v4-flash"},
+            {"model", "deepseek-v4-flash"},
             {"temperature", 0.7},
             {"system_prompt", "你是有道词典笔的AI助手，请简洁准确地回答问题。"},
             {"bing", {
@@ -212,7 +212,7 @@ bool Config::_update(json& data) {
             addMissing(data["ai"], "provider_index", 0);
             addMissing(data["ai"], "base_url", "https://api.deepseek.com");
             addMissing(data["ai"], "api_key", "");
-            addMissing(data["ai"], "model", "v4-flash");
+            addMissing(data["ai"], "model", "deepseek-v4-flash");
             addMissing(data["ai"], "temperature", 0.7);
             addMissing(
                 data["ai"],

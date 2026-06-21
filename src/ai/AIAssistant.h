@@ -100,7 +100,7 @@ private:
     };
 
     static constexpr Provider kProviders[] = {
-        {"DeepSeek",   "https://api.deepseek.com",                          "v4-flash"             },
+        {"DeepSeek",   "https://api.deepseek.com",                          "deepseek-v4-flash"    },
         {"Kimi",       "https://api.moonshot.cn/v1",                        "moonshot-v1-8k"       },
         {"通义千问",   "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-turbo"           },
         {"智谱GLM",    "https://open.bigmodel.cn/api/paas/v4",              "glm-4-flash"          },

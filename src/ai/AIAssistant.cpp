@@ -32,9 +32,9 @@ AIAssistant::AIAssistant() : Logger("AIAssistant") {
 
     // Migrate only the retired DeepSeek default. Preserve every custom model
     // selected by the user and models belonging to other providers.
-    if (mProviderIndex == 0 && mModel == "deepseek-chat") {
-        mModel        = "v4-flash";
-        mCfg["model"] = "v4-flash";
+    if (mProviderIndex == 0 && (mModel == "deepseek-chat" || mModel == "v4-flash")) {
+        mModel        = "deepseek-v4-flash";
+        mCfg["model"] = "deepseek-v4-flash";
         WRITE_CFG;
     }
 

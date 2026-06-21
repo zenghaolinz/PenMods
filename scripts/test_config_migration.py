@@ -9,7 +9,7 @@ AI_DEFAULTS = {
     "provider_index": 0,
     "base_url": "https://api.deepseek.com",
     "api_key": "",
-    "model": "v4-flash",
+    "model": "deepseek-v4-flash",
     "temperature": 0.7,
     "system_prompt": "你是有道词典笔的 AI 助手，请简洁准确地回答问题。",
 }
@@ -63,9 +63,10 @@ class ConfigMigrationTests(unittest.TestCase):
         source = (
             Path(__file__).parents[1] / "src/ai/AIAssistant.cpp"
         ).read_text(encoding="utf-8")
-        self.assertIn('"DeepSeek",   "https://api.deepseek.com",                          "v4-flash"', header)
+        self.assertIn('"DeepSeek",   "https://api.deepseek.com",                          "deepseek-v4-flash"', header)
         self.assertIn('mModel == "deepseek-chat"', source)
-        self.assertIn('mCfg["model"] = "v4-flash"', source)
+        self.assertIn('mModel == "v4-flash"', source)
+        self.assertIn('mCfg["model"] = "deepseek-v4-flash"', source)
 
     def test_reasoning_content_is_not_shown_or_saved(self):
         source = (
