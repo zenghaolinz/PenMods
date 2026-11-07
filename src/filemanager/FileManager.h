@@ -14,6 +14,9 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
+#include <QThread>
+#include <QUrl>
+#include <QVariantList>
 
 namespace mod::filemanager {
 
@@ -24,11 +27,23 @@ class FileManager : public QAbstractListModel, public Singleton<FileManager>, pr
     Q_PROPERTY(int order READ getOrder WRITE setOrder NOTIFY orderChanged);
     Q_PROPERTY(bool orderReversed READ getOrderReversed WRITE setOrderReversed NOTIFY orderReversedChanged);
     Q_PROPERTY(bool hasMore READ isHasMore NOTIFY hasMoreChanged);
+    Q_PROPERTY(QVariantList textSearchResults READ textSearchResults NOTIFY textSearchChanged)
+    Q_PROPERTY(bool textSearching READ textSearching NOTIFY textSearchChanged)
+    Q_PROPERTY(QString textSearchError READ textSearchError NOTIFY textSearchChanged)
 
     // MusicPlayer
     Q_PROPERTY(bool hidePairedLyrics READ getHidePairedLyrics WRITE setHidePairedLyrics NOTIFY hidePairedLyricsChanged);
 
 public:
+    ~FileManager() override;
+    QVariantList textSearchResults() const { return mTextResults; }
+    bool textSearching() const { return mTextSearching; }
+    QString textSearchError() const { return mTextSearchError; }
+    Q_INVOKABLE void searchTextFiles(const QString& query, bool contents);
+    Q_INVOKABLE void cancelTextSearch();
+    Q_INVOKABLE bool openTextResult(const QString& path);
+    Q_INVOKABLE QUrl imageUrl(const QString& fileName) const;
+    [[nodiscard]] QFileInfo viewerFile(const QString& fileName) const;
     [[nodiscard]] int rowCount(const QModelIndex& parent) const override;
 
     [[nodiscard]] QVariant data(const QModelIndex& index, int role) const override;
@@ -91,6 +106,7 @@ public:
     Q_INVOKABLE void playFromView(const QString& fileName);
 
 signals:
+    void textSearchChanged();
 
     void currentTitleChanged();
 
@@ -140,5 +156,10 @@ private:
     QDir mCurrentPlayingPath;
 
     void refreshPlayList();
+    QVariantList mTextResults;
+    bool mTextSearching = false;
+    QString mTextSearchError;
+    int mSearchGeneration = 0;
+    QList<QThread*> mSearchWorkers;
 }; // namespace mod::filemanager
 } // namespace mod::filemanager

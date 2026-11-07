@@ -8,6 +8,8 @@
 
 #include "common/Event.h"
 #include "common/Utils.h"
+#include "common/util/System.h"
+#include <QDir>
 
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -16,7 +18,8 @@
 
 namespace mod {
 
-AIAssistant::AIAssistant() : Logger("AIAssistant") {
+AIAssistant::AIAssistant() : Logger("AIAssistant"),
+    mHistory(util::getModuleFileInfo().absoluteDir().filePath("ai-history.json")) {
 
     mCfg = Config::getInstance().read(mClassName);
 
@@ -38,7 +41,13 @@ AIAssistant::AIAssistant() : Logger("AIAssistant") {
         WRITE_CFG;
     }
 
-    mNam = new QNetworkAccessManager(this);
+    if (!mHistory.load()) _setError(mHistory.error());
+    mRequestTimer.setSingleShot(true);
+    mRequestTimer.setInterval(60000);
+    connect(&mRequestTimer, &QTimer::timeout, this, [this]() {
+        _setError("请求超时，请检查网络后重试");
+        stop();
+    });
 
     // Seed the system message once the prompt is known.
     if (!mSystemPrompt.isEmpty()) {
@@ -130,7 +139,7 @@ void AIAssistant::setSystemPrompt(const QString& val) {
         WRITE_CFG;
         // Re-seed the system message at index 0.
         if (mMessages.empty() || mMessages[0].value("role", "") != "system") {
-            mMessages.insert(mMessages.begin(), {{"role", "system"}, {"content", val.toStdString()}});
+            mMessages.insert(mMessages.begin(), json{{"role", "system"}, {"content", val.toStdString()}});
         } else {
             mMessages[0]["content"] = val.toStdString();
         }
@@ -170,27 +179,57 @@ void AIAssistant::selectProvider(int index) {
 // --- conversation ---
 
 void AIAssistant::clearHistory() {
+    stop();
+    mHistory.clear();
     if (!mSystemPrompt.isEmpty()) {
         mMessages = json::array({{{"role", "system"}, {"content", mSystemPrompt.toStdString()}}});
     } else {
         mMessages = json::array();
     }
     mAccumulatedReply.clear();
+    _setError(QString());
+    _publishHistory();
     emit replyChunkChanged(QString());
 }
 
-void AIAssistant::send(const QString& userMessage) {
-    // Tear down any in-flight request synchronously before starting a new one.
-    // stop() (abort) is asynchronous and would race with the new request, so we
-    // disconnect signals and drop the old reply right here.
-    if (mNetworkReply) {
-        disconnect(mNetworkReply, nullptr, this, nullptr);
-        mNetworkReply->abort();
-        mNetworkReply->deleteLater();
-        mNetworkReply = nullptr;
-        mSseBuffer.clear();
-        _setRequesting(false);
+void AIAssistant::_publishHistory() {
+    if (!mHistory.save()) _setError(mHistory.error());
+    emit historyChanged();
+}
+QVariantList AIAssistant::messages() const {
+    auto list = mHistory.messages();
+    if (mRequesting && !list.empty()) {
+        auto last = list.back().toMap();
+        if (last["status"] == "pending") {
+            last["content"] = mAccumulatedReply;
+            list.back() = last;
+        }
     }
+    return list;
+}
+void AIAssistant::newConversation() {
+    stop(); mHistory.create(); _setError({}); _resetReplyState(); _publishHistory();
+}
+void AIAssistant::selectConversation(const QString& id) {
+    stop();
+    if (mHistory.select(id)) { _setError({}); _resetReplyState(); _publishHistory(); }
+}
+void AIAssistant::deleteConversation(const QString& id) {
+    if (id == mHistory.activeId()) stop();
+    if (mHistory.remove(id)) _publishHistory();
+}
+void AIAssistant::renameConversation(const QString& title) { mHistory.rename(title); _publishHistory(); }
+void AIAssistant::retryLast() { const auto prompt = mHistory.lastPrompt(); if (!prompt.isEmpty()) _send(prompt, true); }
+void AIAssistant::send(const QString& userMessage) { _send(userMessage, false); }
+void AIAssistant::_send(const QString& userMessage, bool retry) {
+    if (userMessage.trimmed().isEmpty()) {
+        return;
+    }
+    if (userMessage.size() > 16000) { _setError("问题过长，请限制在 16000 字以内"); return; }
+    // Tear down any in-flight request synchronously before starting a new one.
+    // stop() detaches the reply before aborting, preventing late signals from
+    // changing the new request or leaving an unfinished user turn in history.
+    stop();
 
     if (!mEnabled) {
         _setError("AI 助手未启用");
@@ -208,12 +247,23 @@ void AIAssistant::send(const QString& userMessage) {
         _setError("未配置模型");
         return;
     }
+    QUrl endpoint(mBaseUrl.trimmed());
+    if (!endpoint.isValid() || endpoint.host().isEmpty()
+        || (endpoint.scheme() != "https" && endpoint.scheme() != "http")
+        || !endpoint.userInfo().isEmpty() || endpoint.hasQuery() || endpoint.hasFragment()) {
+        _setError("Base URL 无效，请填写完整的 HTTP 或 HTTPS 接口地址");
+        return;
+    }
 
     _resetReplyState();
     _setError(QString());
     _setRequesting(true);
 
-    mMessages.push_back({{"role", "user"}, {"content", userMessage.toStdString()}});
+    if (retry) mHistory.removeLastTurn();
+    mMessages = mHistory.context(mSystemPrompt);
+    mHistory.beginTurn(userMessage.trimmed());
+    _publishHistory();
+    mMessages.push_back({{"role", "user"}, {"content", userMessage.trimmed().toStdString()}});
 
     json body = {
         {"model",       mModel.toStdString()},
@@ -224,11 +274,13 @@ void AIAssistant::send(const QString& userMessage) {
 
     QNetworkRequest req;
     // Join base URL and path, tolerating a trailing slash on the base.
-    QString path = mBaseUrl;
-    if (path.endsWith('/')) {
+    QString path = endpoint.toString();
+    while (path.endsWith('/')) {
         path.chop(1);
     }
-    path += "/chat/completions";
+    if (!path.endsWith("/chat/completions")) {
+        path += "/chat/completions";
+    }
     req.setUrl(QUrl(path));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     req.setRawHeader("Authorization", ("Bearer " + mApiKey).toUtf8());
@@ -237,7 +289,11 @@ void AIAssistant::send(const QString& userMessage) {
 
     info("POST {} (provider={}, model={})", path.toStdString(), mProviderIndex, mModel.toStdString());
 
+    // The plugin can be loaded before QCoreApplication exists. Network manager
+    // initialization belongs to the first user request, after the event loop starts.
+    if (!mNam) mNam = new QNetworkAccessManager(this);
     mNetworkReply = mNam->post(req, QString::fromStdString(body.dump()).toUtf8());
+    mRequestTimer.start();
 
     connect(mNetworkReply, &QIODevice::readyRead, this, &AIAssistant::_onReadyRead);
     connect(mNetworkReply, &QNetworkReply::finished, this, &AIAssistant::_onReplyFinished);
@@ -256,8 +312,20 @@ void AIAssistant::send(const QString& userMessage) {
 
 void AIAssistant::stop() {
     if (mNetworkReply) {
-        // abort() triggers errorOccurred(OperationCanceledError) then finished.
-        mNetworkReply->abort();
+        auto* reply = mNetworkReply;
+        mNetworkReply = nullptr;
+        disconnect(reply, nullptr, this, nullptr);
+        reply->abort();
+        reply->deleteLater();
+        mRequestTimer.stop();
+        mSseBuffer.clear();
+        mHistory.finishTurn(mAccumulatedReply, mLastError.isEmpty() ? "stopped" : "error", mLastError);
+        _publishHistory();
+        if (!mMessages.empty() && mMessages.back().value("role", "") == "user") {
+            mMessages.erase(mMessages.end() - 1);
+        }
+        _setRequesting(false);
+        emit requestFinished();
     }
 }
 
@@ -288,6 +356,7 @@ void AIAssistant::_onReadyRead() {
         return;
     }
     mSseBuffer += mNetworkReply->readAll();
+    mRequestTimer.start();
     _drainSseBuffer();
 }
 
@@ -386,19 +455,22 @@ void AIAssistant::_onReplyFinished() {
         return;
     }
 
+    mRequestTimer.stop();
     // Drain any final bytes the server sent after the last readyRead.
     if (mNetworkReply->bytesAvailable() > 0) {
         mSseBuffer += mNetworkReply->readAll();
         _drainSseBuffer();
     }
 
-    bool aborted = (mNetworkReply->error() == QNetworkReply::OperationCanceledError);
     bool noError = (mNetworkReply->error() == QNetworkReply::NoError);
 
     // Record the assistant turn so multi-turn context is preserved.
     if (noError && !mAccumulatedReply.isEmpty()) {
         mMessages.push_back({{"role", "assistant"}, {"content", mAccumulatedReply.toStdString()}});
-    } else if (!aborted) {
+    } else {
+        if (noError && mLastError.isEmpty()) {
+            _setError("服务未返回回答，请检查模型或接口配置");
+        }
         // A failed request: the user turn that just failed should not poison
         // the context for the next attempt.
         if (!mMessages.empty() && mMessages.back().value("role", "") == "user") {
@@ -409,6 +481,9 @@ void AIAssistant::_onReplyFinished() {
     mNetworkReply->deleteLater();
     mNetworkReply = nullptr;
     mSseBuffer.clear();
+    mHistory.finishTurn(mAccumulatedReply, noError && !mAccumulatedReply.isEmpty() && mLastError.isEmpty()
+                        ? "complete" : "error", mLastError);
+    _publishHistory();
 
     _setRequesting(false);
     emit requestFinished();

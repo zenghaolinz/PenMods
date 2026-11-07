@@ -19,8 +19,10 @@ QFileInfo getModuleFileInfo() {
 
 QFileInfo getApplicationFileInfo() {
     char path[4096];
-    if (readlink("/proc/self/exe", path, sizeof(path) - 1) == -1) return {};
-    return QFileInfo(path);
+    const auto length = readlink("/proc/self/exe", path, sizeof(path) - 1);
+    if (length == -1) return {};
+    path[length] = '\0';
+    return QFileInfo(QString::fromLocal8Bit(path, length));
 }
 
 } // namespace mod::util

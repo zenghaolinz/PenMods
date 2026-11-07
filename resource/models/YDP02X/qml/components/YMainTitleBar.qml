@@ -41,28 +41,6 @@ Item {
         }
     }
 
-    YImage {
-        id: id_ai_assistant_icon
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.left: id_portrait_icon.right
-        anchors.leftMargin: 16
-        width: 27
-        height: 18
-        sourceSize: Qt.size(27, 18)
-        source: res.get("new-bing-icon")
-        visible: aiAssistant.enabled
-
-        YMouseArea {
-            anchors.fill: parent
-            anchors.margins: -6
-            objectName: "YMainTitleBar.qml_id_ai_assistant_button"
-            onClicked: {
-                console.log("YMainTitleBar.qml===open AI assistant")
-                id_title_bar.openAIAssistant()
-            }
-        }
-    }
-
     Row {
         id: id_icon_container
         spacing: 6

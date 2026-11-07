@@ -54,6 +54,14 @@ YSettingItemPage {
                 }
             }
 
+            DescribedClickableTextBox {
+                visible: developerSettings.wifiPageShowIp
+                opacityChangableWhenPressed: false
+                describeItem.width: 200
+                title: "当前内网 IP"
+                describe: networkSettings.localIpAddress
+            }
+
             DescribedSwitchItem {
                 title: "离线资源管理器"
                 description: "开启后，后台会定时检查离线资源（如词典）是否有更新。"

@@ -27,7 +27,9 @@ Downloader::TaskId Downloader::createTask(
             3600000
         );
     if (!rtn) {
-        fCb(taskId, savePath, ResultStatus::ERROR_FAIL_TO_START);
+        if (fCb) {
+            fCb(taskId, savePath, ResultStatus::ERROR_FAIL_TO_START);
+        }
         return 0;
     }
     Task task;
@@ -44,11 +46,12 @@ bool Downloader::stopTask(TaskId id) {
         return false;
     }
     auto task = mTasks[id];
+    // Detach before cancellation/callbacks, which may synchronously re-enter us.
+    _clearTask(id);
+    PEN_CALL(void*, "_ZN11YDownloader18cancelDownloadTaskEy", void*, TaskId)(YPointer<YDownloader>::getInstance(), id);
     if (task.mFinishedCallback) {
         task.mFinishedCallback(id, task.mSavePath, ResultStatus::ERROR_STOPPED);
     }
-    PEN_CALL(void*, "_ZN11YDownloader18cancelDownloadTaskEy", void*, TaskId)(YPointer<YDownloader>::getInstance(), id);
-    _clearTask(id);
     return true;
 }
 
@@ -57,7 +60,8 @@ void Downloader::handleDownloadFinished(TaskId id, bool isOk, int stat) {
         return;
     }
     auto task   = mTasks[id];
-    auto result = ResultStatus::SUCCEED;
+    _clearTask(id);
+    auto result = isOk && stat == 0 ? ResultStatus::SUCCEED : ResultStatus::ERROR_UNKNOWN;
     switch (stat) {
     case 1:
         result = ResultStatus::ERROR_FAIL_STORAGE_INVALID;
@@ -71,14 +75,14 @@ void Downloader::handleDownloadFinished(TaskId id, bool isOk, int stat) {
     if (task.mFinishedCallback) {
         task.mFinishedCallback(id, task.mSavePath, result);
     }
-    _clearTask(id);
 }
 
 void Downloader::handleDownloadProgress(TaskId id, int prog) {
     if (!mTasks.contains(id) || !mTasks[id].mProgressCallback) {
         return;
     }
-    mTasks[id].mProgressCallback(id, prog);
+    auto callback = mTasks[id].mProgressCallback;
+    callback(id, qBound(0, prog, 100));
 }
 
 void Downloader::_clearTask(TaskId id) { mTasks.remove(id); }

@@ -46,6 +46,19 @@ class ResourceTreeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "stub resource"):
                 build_tree(device, legacy, root / "output")
 
+    def test_rejects_overlapping_output_without_touching_sources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            device, legacy = root / "device", root / "legacy"
+            write(device / "original.qml", "device")
+            write(legacy / "original.qml", "legacy")
+            for output in (device, legacy, root, device / "output", legacy / "output"):
+                with self.subTest(output=output):
+                    with self.assertRaisesRegex(ValueError, "overlap"):
+                        build_tree(device, legacy, output)
+                    self.assertEqual((device / "original.qml").read_text(), "device")
+                    self.assertEqual((legacy / "original.qml").read_text(), "legacy")
+
 
 class PortedResourceTests(unittest.TestCase):
     ROOT = Path(__file__).parents[1]
@@ -87,15 +100,11 @@ class PortedResourceTests(unittest.TestCase):
         self.assertIn("signal showAIAssistant()", index_page)
         self.assertIn("function openAIAssistant()", index_page)
         self.assertIn("showAIAssistant()", index_page)
-        self.assertIn("id_title_bar.openAIAssistant()", title_bar)
         self.assertIn("parent.openAIAssistant()", title_bar)
         self.assertIn("id_container_index.openAIAssistant()", index_page)
-        ai_button = title_bar[
-            title_bar.index("id: id_ai_assistant_icon") : title_bar.index(
-                "id: id_icon_container"
-            )
-        ]
-        self.assertNotIn("wifiManager.internetConnect", ai_button)
+        self.assertNotIn("id_ai_assistant_icon", title_bar)
+        self.assertIn('append({iconFg: "ai-assistant", pageIndex: -100})', index_page)
+        self.assertIn('if (index === -100) { openAIAssistant(); return }', index_page)
         self.assertNotIn("requestShowPage(PageIndex.AIAssistant)", title_bar)
         menu_model = index_page[index_page.index("id: mainMenuModel") :]
         self.assertNotIn("PageIndex.AIAssistant", menu_model)
@@ -185,13 +194,11 @@ class PortedResourceTests(unittest.TestCase):
             self.assertIn("iconComponent: YImage", page)
             self.assertIn(status, page)
 
-    def test_readme_distinguishes_upstream_and_port_changes(self):
+    def test_readme_names_supported_firmware_and_credits_upstream(self):
         readme = (self.ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("https://github.com/PenUniverse/PenMods", readme)
         self.assertIn("GPL-3.0", readme)
-        self.assertIn("YDP02X 2.1.2 适配修改", readme)
-        self.assertIn("原项目原创", readme)
-        self.assertIn("本分支修改", readme)
+        self.assertIn("YDP02X 固件 2.1.2", readme)
 
 
 if __name__ == "__main__":

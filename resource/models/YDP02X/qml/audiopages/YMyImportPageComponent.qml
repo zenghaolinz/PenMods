@@ -9,11 +9,15 @@ YBackButtonAudioPage {
     id: id_container_index
 
     property string selectedFileName: ""
+    property string keyboardAction: "rename"
+    property bool textSearchOpen: false
 
     YVerticalTitleBar {
         id: id_title_bar
         onCallBack: {
-            if (visible && fileManager.canCdUp()) {
+            if (textSearchOpen) {
+                textSearchOpen = false
+            } else if (visible && fileManager.canCdUp()) {
                 fileManager.changeDir("..")
             } else {
                 backButtonClicked()
@@ -78,11 +82,21 @@ YBackButtonAudioPage {
                         textReader.open(model.fileName)
                         id_pop_container.show("FileManagerTextViewer")
                         break
-                    case "avi": case "mp4": case "mov": case "flv":
-                    case "mkv": case "webm":
-                        videoPlayer.open(model.fileName)
-                        id_pop_container.show("VideoPlayer")
+                    case "png": case "jpg": case "jpeg": {
+                        const image = fileManager.imageUrl(model.fileName)
+                        if (image.toString().length)
+                            id_pop_container.show("ImageViewer", {fileUrl: image, title: model.fileName})
                         break
+                    }
+                    case "avi": case "mp4": case "mov": case "flv":
+                    case "mkv": case "webm": {
+                        if (videoPlayer.open(model.fileName)) {
+                            if (mediaPlayerManager.playState === YEnum.PLAYING)
+                                mediaPlayerManager.onClickedPause()
+                            id_pop_container.show("VideoPlayer", {title: model.fileName})
+                        }
+                        break
+                    }
                     default:
                         qmlGlobal.showToast("暂不支持该格式", YColors.yellow)
                     }
@@ -152,44 +166,56 @@ YBackButtonAudioPage {
 
     YPagePopHelper {
         id: id_keyboard_helper
-        isShowing: qmlGlobal.inputPageShowing
+        z: 40
+        property bool keyboardOpen: false
+        isShowing: keyboardOpen
         function inputPageCreated(keyboardPage) {
             keyboardPage.backButtonClicked.connect(function() {
+                keyboardOpen = false
                 qmlGlobal.inputPageShowing = false
                 keyboardPage.todoDestroy()
             })
             keyboardPage.inputFinished.connect(function(content) {
-                fileManager.rename(selectedFileName, content)
+                if (keyboardAction === "search") {
+                    textSearchPanel.query = content.trim().slice(0, 128)
+                    textSearchPanel.run()
+                } else fileManager.rename(selectedFileName, content)
             })
-            keyboardPage.placeHolderText = "请输入新文件名"
-            keyboardPage.enterText(selectedFileName)
+            keyboardPage.placeHolderText = keyboardAction === "search" ? "文件名/正文关键词（最多128字）" : "请输入新文件名"
+            keyboardPage.enterText(keyboardAction === "search" ? textSearchPanel.query : selectedFileName)
+            keyboardOpen = true
             keyboardPage.show()
             qmlGlobal.inputPageShowing = true
         }
     }
 
-    function requestRenameKeyboard() {
-        let component = qmlCreateComponent("YInputPage")
-        if (component.status !== Component.Ready) return
-        let incubator = component.incubateObject(id_keyboard_helper.containerItem)
-        if (incubator.status === Component.Ready) {
-            id_keyboard_helper.inputPageCreated(incubator.object)
-        } else {
-            incubator.onStatusChanged = function(status) {
-                if (status === Component.Ready)
-                    id_keyboard_helper.inputPageCreated(incubator.object)
-            }
+    function requestRenameKeyboard() { requestKeyboard("rename") }
+    function requestKeyboard(action) {
+        if (id_keyboard_helper.keyboardOpen) return
+        keyboardAction = action
+        const component = Qt.createComponent("qrc:/qml/YInputPage.qml", Component.PreferSynchronous)
+        if (component.status !== Component.Ready) {
+            console.warn("我的导入键盘：", component.errorString())
+            return
         }
+        const keyboard = component.createObject(id_keyboard_helper.containerItem)
+        if (keyboard) id_keyboard_helper.inputPageCreated(keyboard)
     }
 
     Item {
         id: id_pop_container
+        z: 30
         anchors.fill: parent
         signal closeSameItem(string popStackId)
-        function show(page) {
+        function show(page, properties) {
             closeSameItem(page)
             const component = Qt.createComponent(("./%1.qml").arg(page))
-            const incubator = component.incubateObject(id_pop_container)
+            if (component.status !== Component.Ready) {
+                console.warn("我的导入：", component.errorString())
+                if (page === "VideoPlayer") videoPlayer.playback.close()
+                return
+            }
+            const incubator = component.incubateObject(id_pop_container, properties || {})
             function initialize(item) {
                 Object.defineProperty(item, "popStackId", {value: page})
                 item.backButtonClicked.connect(function() { closeSameItem(page); item.destroy(1) })
@@ -202,6 +228,26 @@ YBackButtonAudioPage {
             if (incubator.status === Component.Ready) initialize(incubator.object)
             else incubator.onStatusChanged = function(status) {
                 if (status === Component.Ready) initialize(incubator.object)
+            }
+        }
+    }
+
+    YButtonBase {
+        x: 7; anchors.bottom: parent.bottom; anchors.bottomMargin: 52
+        width: 40; height: 30; radius: 6; color: "#335A7A"
+        onClicked: { textSearchOpen = true; requestKeyboard("search") }
+        YTextMedium { anchors.centerIn: parent; text: "找文本"; font.pixelSize: 10 }
+    }
+    TextFileSearchPanel {
+        id: textSearchPanel
+        anchors.fill: parent; anchors.leftMargin: 54
+        z: 10; visible: textSearchOpen
+        onCloseRequested: textSearchOpen = false
+        onRequestQuery: requestKeyboard("search")
+        onOpenResult: {
+            if (fileManager.openTextResult(path)) {
+                if (textSearchPanel.searchContents) textReader.search(textSearchPanel.query)
+                id_pop_container.show("FileManagerTextViewer")
             }
         }
     }

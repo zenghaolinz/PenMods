@@ -35,6 +35,7 @@ YBackground {
 
     function mainMenuClicked(index) {
         console.log("YIndexPage.qml===mainMenuClicked===index: ", index)
+        if (index === -100) { openAIAssistant(); return }
         let component = null
         switch (index) {
         case YEnum.PageIndex.Dict:
@@ -95,11 +96,22 @@ YBackground {
             width: 112
             height: 102
 
+            Rectangle {
+                anchors.fill: parent
+                visible: pageIndex === -100
+                radius: 18
+                opacity: id_main_menu_icon_button.pressed ? 0.6 : 1
+                gradient: Gradient {
+                    GradientStop { position: 0; color: "#7263E8" }
+                    GradientStop { position: 1; color: "#3659BE" }
+                }
+            }
             YImage {
+                visible: pageIndex !== -100
                 anchors.fill: parent
                 sourceSize: Qt.size(112, 102)
                 opacity: id_main_menu_icon_button.pressed ? 0.6 : 1
-                imageName: ("%1-bg").arg(iconFg)
+                imageName: pageIndex === -100 ? "" : ("%1-bg").arg(iconFg)
                 antialiasing: true
             }
 
@@ -111,7 +123,7 @@ YBackground {
                 width: 40
                 height: 40
                 sourceSize: Qt.size(40, 40)
-                imageName: iconFg
+                source: pageIndex === -100 ? "qrc:/images/ic_ai.png" : ("image://icons/%1.png").arg(iconFg)
             }
 
             YText {
@@ -124,6 +136,8 @@ YBackground {
                 font.weight: Font.DemiBold
                 text: {
                     switch (pageIndex) {
+                    case -100:
+                        return "AI 助手"
                     case YEnum.PageIndex.Dict:
                         return YTranslateText.dict
                     case YEnum.PageIndex.Speech:
@@ -159,7 +173,9 @@ YBackground {
 
     ListModel {
         id: mainMenuModel
+        objectName: "penmods-home-menu"
         Component.onCompleted: {
+            append({iconFg: "ai-assistant", pageIndex: -100})
             append({iconFg: "home-dict", pageIndex: YEnum.PageIndex.Dict})
             if (qmlGlobal.checkFeature(YEnum.FEATURE_ASSISTANT)) {
                 append({iconFg: "home-speech", pageIndex: YEnum.PageIndex.Speech})

@@ -47,8 +47,9 @@ def build_tree(device: Path, legacy: Path, output: Path) -> list[Path]:
     output = output.resolve()
     _validate_source(device)
     _validate_source(legacy)
-    if output == device or output == legacy or output in device.parents or output in legacy.parents:
-        raise ValueError("output must not replace either source tree")
+    if any(output == source or output in source.parents or source in output.parents
+           for source in (device, legacy)):
+        raise ValueError("output must not overlap either source tree")
 
     if output.exists():
         shutil.rmtree(output, onexc=_remove_readonly)

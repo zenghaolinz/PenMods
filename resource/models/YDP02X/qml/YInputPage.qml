@@ -13,6 +13,11 @@ YPage {
 
     signal inputFinished(string text)
 
+    function enterText(text) {
+        id_input_text_title_area.clear()
+        if (text) id_input_text_title_area.enterChar(text)
+    }
+
     YInputTextTitleArea {
         id: id_input_text_title_area
         anchors.left: parent.left

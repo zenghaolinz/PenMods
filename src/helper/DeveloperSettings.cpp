@@ -17,6 +17,7 @@ DeveloperSettings::DeveloperSettings() {
     mCfg = Config::getInstance().read(mClassName);
 
     mOfflineRM = mCfg["offline_rm"];
+    mWifiPageShowIp = mCfg.value("wifi_page_show_ip", false);
 
     connect(&Event::getInstance(), &Event::beforeUiInitialization, [this](QQuickView& view, QQmlContext* context) {
         context->setContextProperty("developerSettings", this);
@@ -30,6 +31,13 @@ PEN_HOOK(void, _ZN23YOfflineResourceManager3runEv, uint64 self) {
 }
 
 bool DeveloperSettings::getOfflineRM() const { return mOfflineRM; }
+void DeveloperSettings::setWifiPageShowIp(bool value) {
+    if (mWifiPageShowIp == value) return;
+    mWifiPageShowIp = value;
+    mCfg["wifi_page_show_ip"] = value;
+    WRITE_CFG;
+    emit wifiPageShowIpChanged();
+}
 
 void DeveloperSettings::setOfflineRM(bool val) {
     if (mOfflineRM != val) {

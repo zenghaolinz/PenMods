@@ -28,6 +28,7 @@ Item {
         }
     }
     property int lrcStateIndex: 0
+    property bool localAdvanced: false
 
     function show() {
         state = "show"
@@ -333,6 +334,24 @@ Item {
         }
     }
 
+    LocalAudioControls {
+        parent: id_audio_player_container
+        anchors.fill: parent
+        z: 50
+        visible: musicPlayer.localPlayback && id_audio_player.state === "show" && !id_audio_player.localAdvanced
+        onCloseRequested: id_audio_player.close()
+        onAdvancedRequested: { id_audio_player.localAdvanced = true; id_play_bar.show() }
+    }
+
+    YButtonBase {
+        parent: id_audio_player_container
+        anchors.right: parent.right; anchors.rightMargin: 10; y: 4
+        z: 100; width: 70; height: 28; radius: 6; color: "#335A7A"
+        visible: musicPlayer.localPlayback && id_audio_player.state === "show" && id_audio_player.localAdvanced
+        onClicked: { id_play_bar.close(); id_audio_player.localAdvanced = false }
+        YTextMedium { anchors.centerIn: parent; text: "简洁模式"; font.pixelSize: 12 }
+    }
+
     states: [
         State {
             name: "close"
@@ -349,6 +368,7 @@ Item {
 //    }
 
     onStateChanged: {
+        if (state === "show") localAdvanced = false
         qmlGlobal.isInPlayerCenterPage = ("show" === state)
     }
 

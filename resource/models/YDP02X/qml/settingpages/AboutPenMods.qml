@@ -15,6 +15,7 @@ YSettingItemPage {
         anchors.leftMargin: 54
         anchors.rightMargin: 10
         contentHeight: id_title_container.height + id_column.height
+        clip: true
 
         YSettingItemTitle {
             id: id_title_container
@@ -36,8 +37,8 @@ YSettingItemPage {
             DescribedClickableTextBox {
                 opacityChangableWhenPressed: false
                 describeItem.width: 200
-                title: "构建日期"
-                describe: mod.buildDate
+                title: "构建信息"
+                describe: mod.buildInfo
             }
 
             YSettingAboutItem {
@@ -45,29 +46,18 @@ YSettingItemPage {
                 value: mod.cachedSymCount
             }
 
-            YSettingAboutItem {
-                title: "GitHub"
-                value: "PenUniverse"
-            }
-
-            YSettingAboutItem {
-                title: "QQ交流群"
-                value: "641664873"
+            DescribedClickableTextBox {
+                opacityChangableWhenPressed: false
+                describeItem.width: 200
+                title: "开源许可与来源"
+                describe: "GNU GPL v3\n基于 PenUniverse/PenMods\nYDP02X 2.1.2 适配版"
             }
 
             DescribedClickableTextBox {
                 opacityChangableWhenPressed: false
                 describeItem.width: 200
                 title: "特别鸣谢"
-                describe: "Dobby (Hook Framework)\nQt Project\nNetease Youdao\nRedbeanW (Developer)\nAll Sponsors..."
-            }
-
-            YSettingAboutClickableItem {
-                title: "捐助项目发展"
-                imageName: "settings/info_more_arrow"
-                onClicked: {
-                    id_pop_container.show("AFDianQrCode")
-                }
+                describe: "Dobby (Hook Framework)\nQt Project\nNetease Youdao\nRedbeanW (Developer)"
             }
 
             YSpacingForColumn {
@@ -76,56 +66,6 @@ YSettingItemPage {
 
         }
 
-    }
-
-    Item {
-        id: id_pop_container
-        anchors.fill: parent
-
-        signal closeSameItem(string popStackId)
-
-        function show(page) {
-            closeSameItem(page)
-            function newComponentInit(incubatorObject) {
-                Object.defineProperty(incubatorObject, 'popStackId', {
-                                          enumerable: false, configurable: false,
-                                          writable: false, value: page
-                                      })
-                qmlGlobal.requestShowPage.connect(function(index, cachePage) {
-                    if (YEnum.PageIndex.Setting !== index) {
-                        incubatorObject.destroy(1)
-                    }
-                })
-                incubatorObject.backButtonClicked.connect(function() {
-                    closeSameItem(incubatorObject.popStackId)
-                    incubatorObject.destroy(1)
-                })
-                id_pop_container.closeSameItem.connect(function(popStackId) {
-                    if (popStackId === incubatorObject.popStackId) {
-                        incubatorObject.destroy(1)
-                    }
-                })
-                systemBase.homeKeyRelease.connect(function() {
-                    incubatorObject.destroy(1)
-                })
-                systemBase.homeKeyLongPress.connect(function() {
-                    incubatorObject.destroy(1)
-                })
-                incubatorObject.show()
-            }
-
-            const newComponent = Qt.createComponent(("./%1.qml").arg(page))
-            const incubator = newComponent.incubateObject(id_pop_container)
-            if (incubator.status !== Component.Ready) {
-                incubator.onStatusChanged = function(status) {
-                    if (status === Component.Ready) {
-                        newComponentInit(incubator.object)
-                    }
-                }
-            } else {
-                newComponentInit(incubator.object)
-            }
-        }
     }
 
 }

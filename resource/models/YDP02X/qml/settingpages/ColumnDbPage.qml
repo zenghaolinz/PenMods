@@ -1,76 +1,42 @@
 import QtQuick 2.12
-import com.youdao.pen 1.0
-
 import "../commons"
 import "../components"
-import "../i18n"
 
-YPage {
-    id: id_setting_item
+YSettingItemPage {
     objectName: "YPage===ColumnDbPage.qml"
-
     Flickable {
-        id: id_setting_item_view
         anchors.fill: parent
         anchors.leftMargin: 54
         anchors.rightMargin: 10
-        contentHeight: id_title_item.height + id_slider_rect.height + 62
-        interactive: !id_slider_moving_timer.running
-
-        YSettingItemTitle {
-            id: id_title_item
-            title: "单次查询数量限制: " + columnDb.limit
-        }
-
-        YSettingItemBackground {
-            id: id_slider_rect
-            implicitHeight: 60
-            anchors.top: id_title_item.bottom
-
-            YSlider {
-                id: id_slider
-                implicitWidth: 140
-                anchors.centerIn: parent
-                minValue: 10
-                value: columnDb.limit
-                onValueChanged: {
-                    columnDb.limit = value
+        contentHeight: content.height
+        clip: true
+        Column {
+            id: content
+            width: parent.width
+            spacing: 8
+            YSettingItemTitle { title: "列表加载数量：" + columnDb.limit }
+            Row {
+                spacing: 8
+                Repeater {
+                    model: [10, 30, 50, 80, 100]
+                    delegate: YButtonBase {
+                        objectName: "load-count-" + modelData
+                        width: 40
+                        height: 34
+                        radius: 6
+                        color: columnDb.limit === modelData ? "#3578B8" : YColors.grayNormal
+                        onClicked: columnDb.limit = modelData
+                        YTextMedium { anchors.centerIn: parent; text: modelData }
+                    }
                 }
             }
-
-            YTimer {
-                id: id_slider_moving_timer
-                interval: 300
-                objectName: "ColumnDbPage.qml_id_slider_moving_timer"
+            YTextBase {
+                width: parent.width
+                text: "高级设置：调整单词本、教材等列表每次读取的条目数。\n10 为原版数量，80 为增强默认值。数量越大，每次加载的数据越多，也会占用更多内存。"
+                wrapMode: Text.Wrap
+                font.pixelSize: 14
+                color: YColors.grayText
             }
-
-            YClickabledImage {
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.right: id_slider.left
-                anchors.rightMargin: 16
-                resource: "db-limit-dec"
-                onClicked: {
-                    id_slider.decrementTenValue()
-                }
-            }
-
-            YClickabledImage {
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.left: id_slider.right
-                anchors.leftMargin: 16
-                resource: "db-limit-inc"
-                onClicked: {
-                    id_slider.incrementTenValue()
-                }
-            }
-        }
-
-    }
-
-    YVerticalTitleBar {
-        id: id_title_bar
-        onCallBack: {
-            backButtonClicked()
         }
     }
 }

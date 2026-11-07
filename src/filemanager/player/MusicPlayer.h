@@ -11,6 +11,7 @@
 #include "common/service/Logger.h"
 
 #include <QDir>
+#include <QVariantList>
 
 namespace mod::filemanager {
 
@@ -19,9 +20,19 @@ using PlayList = std::vector<PlayFile>;
 
 class MusicPlayer : public QObject, public Singleton<MusicPlayer>, private Logger {
     Q_OBJECT
+    Q_PROPERTY(bool localPlayback READ localPlayback NOTIFY playlistChanged)
+    Q_PROPERTY(QVariantList playlist READ playlist NOTIFY playlistChanged)
+    Q_PROPERTY(int currentIndex READ currentIndex NOTIFY playlistChanged)
 
 public:
     void play(size_t idx);
+    Q_INVOKABLE void selectTrack(int index) { if (index >= 0) play(static_cast<size_t>(index)); }
+    QVariantList playlist() const;
+    bool localPlayback() const { return mIsTakeOver; }
+    int currentIndex() const { return mCurrentPlaying.mFile ? int(mCurrentPlaying.mIndex) : -1; }
+signals:
+    void playlistChanged();
+public:
 
     void clickNext();
 

@@ -126,6 +126,8 @@ YSettingItemPage {
                                     switch (model.modelData.linkStatus) {
                                     case YEnum.LINKED:
                                         return YTranslateText.connectSuccess
+                                                + (developerSettings.wifiPageShowIp
+                                                   ? " · " + networkSettings.localIpAddress : "")
                                     case YEnum.LINKING:
                                         return YTranslateText.connetingWifi
                                     case YEnum.DISCONNECTING:

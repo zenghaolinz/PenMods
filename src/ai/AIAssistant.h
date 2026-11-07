@@ -11,10 +11,12 @@
 #include "common/service/Singleton.h"
 
 #include "mod/Config.h"
+#include "ai/ChatHistory.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QStringList>
+#include <QTimer>
 
 namespace mod {
 
@@ -41,6 +43,10 @@ class AIAssistant : public QObject, public Singleton<AIAssistant>, private Logge
     Q_PROPERTY(bool requesting READ getRequesting NOTIFY requestingChanged);
     Q_PROPERTY(QString currentReply READ getCurrentReply NOTIFY replyChunkChanged);
     Q_PROPERTY(QString lastError READ getLastError NOTIFY errorChanged);
+    Q_PROPERTY(QVariantList conversations READ conversations NOTIFY historyChanged);
+    Q_PROPERTY(QVariantList messages READ messages NOTIFY historyChanged);
+    Q_PROPERTY(QString activeConversationId READ activeConversationId NOTIFY historyChanged);
+    Q_PROPERTY(QString conversationTitle READ conversationTitle NOTIFY historyChanged);
 
 public:
     [[nodiscard]] bool getEnabled() const;
@@ -74,6 +80,15 @@ public:
     Q_INVOKABLE void stop();
     // Drop the multi-turn conversation history.
     Q_INVOKABLE void clearHistory();
+    QVariantList conversations() const { return mHistory.sessions(); }
+    QVariantList messages() const;
+    QString activeConversationId() const { return mHistory.activeId(); }
+    QString conversationTitle() const { return mHistory.title(); }
+    Q_INVOKABLE void newConversation();
+    Q_INVOKABLE void selectConversation(const QString& id);
+    Q_INVOKABLE void deleteConversation(const QString& id);
+    Q_INVOKABLE void renameConversation(const QString& title);
+    Q_INVOKABLE void retryLast();
 
     // Pre-set providers.
     Q_INVOKABLE QStringList providerNames() const;
@@ -88,6 +103,7 @@ signals:
     void requestingChanged();
     void requestFinished();
     void errorChanged(const QString& msg);
+    void historyChanged();
 
 private:
     friend Singleton<AIAssistant>;
@@ -128,9 +144,13 @@ private:
     QNetworkAccessManager* mNam = nullptr;
     QNetworkReply*         mNetworkReply = nullptr;
     QByteArray             mSseBuffer;          // leftover bytes not yet terminated by a blank line
+    QTimer                 mRequestTimer;
 
     // Multi-turn context: system + user/assistant turns.
     json mMessages = json::array();
+    ChatHistory mHistory;
+    void _publishHistory();
+    void _send(const QString& message, bool retry);
 
     void _setRequesting(bool val);
     void _setError(const QString& msg);

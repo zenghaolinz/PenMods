@@ -6,6 +6,8 @@
 
 #include "filemanager/FileManager.h"
 #include "filemanager/player/MusicPlayer.h"
+#include "filemanager/reader/TextReader.h"
+#include "filemanager/TextFileSearch.h"
 
 #include "common/Event.h"
 #include "common/Utils.h"
@@ -17,6 +19,7 @@
 
 #include <QFile>
 #include <QHash>
+#include <QImageReader>
 #include <QQmlContext>
 #include <QTimer>
 #include <QUrl>
@@ -25,6 +28,83 @@ namespace mod::filemanager {
 
 static const char* HIDDEN_FLAG = ".HIDDEN_DIR";
 static size_t      MAX_FILES   = 65535;
+
+class TextSearchWorker : public QThread {
+public:
+    TextSearchWorker(QString root, QString query, bool contents, QObject* parent) : QThread(parent),
+        root(std::move(root)), query(std::move(query)), contents(contents) {}
+    TextSearchResult result;
+protected:
+    void run() override { result = findTextFiles(root, query, contents, [this] { return isInterruptionRequested(); }); }
+private:
+    QString root, query;
+    bool contents;
+};
+
+FileManager::~FileManager() {
+    for (auto* worker : mSearchWorkers) worker->requestInterruption();
+    for (auto* worker : mSearchWorkers) worker->wait();
+}
+void FileManager::cancelTextSearch() {
+    ++mSearchGeneration;
+    for (auto* worker : mSearchWorkers) worker->requestInterruption();
+    mTextSearching = false;
+    emit textSearchChanged();
+}
+void FileManager::searchTextFiles(const QString& query, bool contents) {
+    cancelTextSearch();
+    const auto generation = mSearchGeneration;
+    mTextSearching = true; mTextResults.clear(); mTextSearchError.clear(); emit textSearchChanged();
+    auto* worker = new TextSearchWorker(mRoot, query.left(128), contents, this);
+    mSearchWorkers.push_back(worker);
+    connect(worker, &QThread::finished, this, [this, worker, generation] {
+        mSearchWorkers.removeAll(worker);
+        if (generation != mSearchGeneration) return;
+        mTextResults = worker->result.files; mTextSearchError = worker->result.error;
+        if (worker->result.truncated) mTextSearchError = "最多显示 200 个匹配文件，请缩小关键词";
+        mTextSearching = false; emit textSearchChanged();
+    });
+    connect(worker, &QThread::finished, worker, &QObject::deleteLater);
+    worker->start();
+}
+bool FileManager::openTextResult(const QString& path) {
+    const auto canonical = QFileInfo(path).canonicalFilePath();
+    const auto root = QFileInfo(mRoot).canonicalFilePath();
+    if (root.isEmpty() || !canonical.startsWith(root + "/") || !QFileInfo(canonical).isFile() || !isTextFile(canonical)) {
+        showToast("文本不存在或不在导入目录中", "#E9900C"); return false;
+    }
+    TextReader::getInstance().open(canonical); return true;
+}
+
+QFileInfo FileManager::viewerFile(const QString& fileName) const {
+    if (fileName.isEmpty() || QFileInfo(fileName).fileName() != fileName) return {};
+    const QFileInfo entry(mCurrentPath, fileName);
+    const QString canonical = entry.canonicalFilePath();
+    const QString root = QDir(mRoot).canonicalPath();
+    if (root.isEmpty() || !entry.isFile() || !canonical.startsWith(root + '/')
+        || QFileInfo(canonical).absolutePath() != mCurrentPath.canonicalPath()) return {};
+    return QFileInfo(canonical);
+}
+
+QUrl FileManager::imageUrl(const QString& fileName) const {
+    const auto entry = viewerFile(fileName);
+    if (!entry.exists()) {
+        showToast("找不到图片文件", "#E9900C");
+        return {};
+    }
+    QImageReader reader(entry.absoluteFilePath());
+    const QByteArray format = reader.format();
+    const QSize size = reader.size();
+    if ((format != "jpeg" && format != "jpg" && format != "png") || !size.isValid() || size.isEmpty()) {
+        showToast("无法读取这张 PNG 或 JPG 图片", "#E9900C");
+        return {};
+    }
+    if (qint64(size.width()) * size.height() > 16000000 || entry.size() > 32LL * 1024 * 1024) {
+        showToast("图片太大，请缩小后打开", "#E9900C");
+        return {};
+    }
+    return QUrl::fromLocalFile(entry.absoluteFilePath());
+}
 
 FileManager::FileManager() : QAbstractListModel(), Logger("FileManager") {
 
@@ -45,15 +125,15 @@ FileManager::FileManager() : QAbstractListModel(), Logger("FileManager") {
     });
 }
 
-int FileManager::rowCount(const QModelIndex& parent) const { return mProxyCount; };
+int FileManager::rowCount(const QModelIndex& parent) const { return parent.isValid() ? 0 : mProxyCount; };
 
 QVariant FileManager::data(const QModelIndex& index, int role) const {
     if (!index.isValid()) {
         return {};
     }
 
-    const size_t row = index.row();
-    if (row < 0 || row > (size_t)mProxyCount - 1) {
+    const int row = index.row();
+    if (index.model() != this || row < 0 || row >= mProxyCount || row >= (int)mEntities.size()) {
         return {};
     }
 
@@ -100,6 +180,11 @@ QVariant FileManager::data(const QModelIndex& index, int role) const {
         case H("xml"):
             name = "xml";
             break;
+        case H("png"):
+            return "qrc:/images/file-icons/suffix-png.png";
+        case H("jpg"):
+        case H("jpeg"):
+            return "qrc:/images/file-icons/suffix-jpg.png";
         case H("avi"):
         case H("mp4"):
         case H("mov"):
@@ -160,10 +245,12 @@ bool FileManager::changeDir(const QString& dir) {
         return changeDir(mRoot);
     }
     debug("Move to dir -> {}", dir.toStdString());
-    mFileSystemWatcher.removePath(mCurrentPath.absolutePath());
-    if (!mCurrentPath.cd(dir)) {
+    QDir destination = mCurrentPath;
+    if (!destination.cd(dir)) {
         return false;
     }
+    mFileSystemWatcher.removePath(mCurrentPath.absolutePath());
+    mCurrentPath = destination;
     emit currentTitleChanged();
     reset();
     _initCurrentDir();
@@ -185,8 +272,11 @@ bool FileManager::canCdUp() const {
 void FileManager::loadMore() { loadMore(ColumnDBLimiter::getInstance().getLimit()); }
 
 void FileManager::loadMore(int amount) {
+    if (amount <= 0 || mProxyCount >= (int)mEntities.size()) {
+        return;
+    }
     // Do not use 'isHasMore()' here!
-    auto finalCount = std::min(mProxyCount + amount, (int)mEntities.size());
+    auto finalCount = mProxyCount + std::min(amount, (int)mEntities.size() - mProxyCount);
     beginInsertRows(QModelIndex(), mProxyCount, finalCount - 1);
     mProxyCount = finalCount; // safe: limited by MAX_FILES.
     endInsertRows();
@@ -397,9 +487,9 @@ void FileManager::setHidePairedLyrics(bool val) {
 
 void FileManager::playFromView(const QString& fileName) {
     if (mCurrentPlayingPath != mCurrentPath) {
-        refreshPlayList();
         mFileSystemWatcher.removePath(mCurrentPlayingPath.absolutePath());
         mCurrentPlayingPath = mCurrentPath;
+        refreshPlayList();
         mFileSystemWatcher.addPath(mCurrentPlayingPath.absolutePath());
     }
     size_t idx   = 0;
@@ -417,11 +507,15 @@ void FileManager::playFromView(const QString& fileName) {
 void FileManager::refreshPlayList() {
     auto& list = MusicPlayer::getInstance().getPlayListRef();
     list.clear();
-    forEachLoadedEntities([&](const std::shared_ptr<QFileInfo>& file) {
-        if (file->suffix().toLower() == "mp3") {
-            list.emplace_back(file);
+    const auto entries = mCurrentPlayingPath.entryInfoList(QDir::Files | QDir::NoSymLinks,
+        static_cast<QDir::SortFlags>(mOrder | (mOrderReversed ? QDir::Reversed : 0) | QDir::IgnoreCase));
+    for (const auto& file : entries) {
+        if (list.size() >= MAX_FILES) break;
+        if (file.suffix().compare("mp3", Qt::CaseInsensitive) == 0) {
+            list.emplace_back(std::make_shared<QFileInfo>(file));
         }
-    });
+    }
+    emit MusicPlayer::getInstance().playlistChanged();
 }
 } // namespace mod::filemanager
 

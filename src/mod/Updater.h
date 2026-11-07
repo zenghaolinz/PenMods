@@ -23,7 +23,6 @@ struct Version {
     bool                  operator>(Version) const;
     bool                  operator<(Version) const;
     [[nodiscard]] QString toString() const;
-    [[nodiscard]] uint32  toNumber() const;
     uint32                mMajor;
     uint32                mMinor;
     uint32                mRevision;
@@ -51,9 +50,6 @@ private:
 
     std::string mClassName = "updater";
 
-    // latest.
-    json mLatestObject;
-
     const Version mSelfVersion = {VERSION_MAJOR, VERSION_MINOR, VERSION_ALTER};
 
     struct UpdateInfo {
@@ -66,25 +62,12 @@ private:
         uint32       mInstallProgress  = 0;
     } mInfo;
 
-    std::string _calcFileMd5(const QString&);
-
-    void _unzip(QString, QString);
-
-    void _cleanupTemp();
-
     void _setCurrentVersion(QString);
-
-    void _setLatestVersion(QString);
 
     void _setUpdateNote(QString);
 
-    void _setUpdatePackSize(double);
-
-    void _setDownloadProgress(int);
-
     void _setOtaStatus(UpdateStatus);
 
-    void _setInstallProgress(int);
 };
 
 } // namespace mod

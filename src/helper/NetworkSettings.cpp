@@ -7,6 +7,8 @@
 #include "helper/NetworkSettings.h"
 
 #include "common/Event.h"
+#include "common/util/Network.h"
+#include <QTimer>
 
 #include <QNetworkProxy>
 #include <QQmlContext>
@@ -32,6 +34,9 @@ NetworkSettings::NetworkSettings() {
     connect(this, &NetworkSettings::proxyPasswordChanged, this, &NetworkSettings::_refreshApplicationProxy);
 
     _refreshApplicationProxy();
+    auto* addressTimer = new QTimer(this);
+    connect(addressTimer, &QTimer::timeout, this, &NetworkSettings::networkChanged);
+    connect(&Event::getInstance(), &Event::uiCompleted, addressTimer, [addressTimer]() { addressTimer->start(5000); });
 
     connect(&Event::getInstance(), &Event::beforeUiInitialization, [this](QQuickView& view, QQmlContext* context) {
         context->setContextProperty("networkSettings", this);
@@ -123,8 +128,7 @@ void NetworkSettings::_refreshApplicationProxy() {
 }
 
 QString NetworkSettings::getLocalIpAddress() const {
-    auto ip = exec("/sbin/ifconfig -a|grep inet|grep -v 127.0.0.1|grep -v inet6|awk '{print $2}'|tr -d 'addr:'");
-    return QString::fromStdString(ip.empty() ? "不可用" : ip);
+    return util::localIpv4Address();
 }
 
 QString NetworkSettings::getNetGateway() const {

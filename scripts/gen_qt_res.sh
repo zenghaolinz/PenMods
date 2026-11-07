@@ -13,10 +13,6 @@ echo 'generating resource.qrc...'
 python3 "$script_dir/gen_qrc.py" "$model_dir" "$model_dir/resource.qrc"
 
 echo 'generating qrc_qml.h...'
-rcc -name qml "$model_dir/resource.qrc" -o "$model_dir/qrc_qml.cpp"
-
-line_count="$(wc -l < "$model_dir/qrc_qml.cpp")"
-head -n "$((line_count - 58))" "$model_dir/qrc_qml.cpp" > "$model_dir/qrc_qml.h"
-rm "$model_dir/qrc_qml.cpp"
+python3 "$script_dir/gen_qt_res.py" "$model_dir"
 
 echo 'done.'

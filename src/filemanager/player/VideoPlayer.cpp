@@ -5,41 +5,49 @@
  */
 
 #include "filemanager/player/VideoPlayer.h"
+#include "filemanager/player/SoftwareVideoDecoder.h"
 
 #include "filemanager/FileManager.h"
 
 #include "common/Event.h"
 #include "common/Utils.h"
+#include "common/util/System.h"
 
 #include <QQmlContext>
 
 namespace mod::filemanager {
 
 VideoPlayer::VideoPlayer() {
+    connect(&mPlayback, &VideoPlayback::audioActiveChanged, this, &VideoPlayer::setAudioActive);
     connect(&Event::getInstance(), &Event::beforeUiInitialization, [this](QQuickView& view, QQmlContext* context) {
         context->setContextProperty("videoPlayer", this);
     });
 } // namespace mod::filemanager
 
-void VideoPlayer::open(QString dir) { mOpeningFileName = std::move(dir); }
-
-QString VideoPlayer::getOpeningPath() {
-    return "file://" + FileManager::getInstance().getCurrentPath().absoluteFilePath(mOpeningFileName);
+bool VideoPlayer::open(const QString& fileName) {
+    const auto file = FileManager::getInstance().viewerFile(fileName);
+    if (!file.exists()) {
+        showToast("找不到视频文件", "#E9900C");
+        return false;
+    }
+    if (!mDecoderReady) {
+        QString error;
+        const auto plugin = util::getModuleFileInfo().absoluteDir().filePath("media/libgstlibav.so");
+        if (!prepareSoftwareVideo(plugin, error)) {
+            showToast(error.toStdString(), "#E9900C");
+            return false;
+        }
+        mDecoderReady = true;
+    }
+    VideoPlayback::registerQmlType();
+    mPlayback.open(QUrl::fromLocalFile(file.absoluteFilePath()));
+    return true;
 }
 
-void VideoPlayer::onStatusChanged(const QString& status) {
-    switch (H(status.toLocal8Bit().data())) {
-    case H("playing"):
-        PEN_CALL(void*, "ydubus_sender_send_event", int, const char*)(0, R"({"action":"Open"})");
-        // InputDaemon>::getInstance().pause();
-        break;
-    case H("paused"):
-    case H("stopped"):
-        PEN_CALL(void*, "ydubus_sender_send_event", int, const char*)(0, R"({"action":"Close"})");
-        // InputDaemon>::getInstance().resume();
-        break;
-    default:
-        break;
-    }
+void VideoPlayer::setAudioActive(bool active) {
+    if (mAudioActive == active) return;
+    mAudioActive = active;
+    PEN_CALL(void*, "ydubus_sender_send_event", int, const char*)(
+        0, active ? R"({"action":"Open"})" : R"({"action":"Close"})");
 }
 } // namespace mod::filemanager

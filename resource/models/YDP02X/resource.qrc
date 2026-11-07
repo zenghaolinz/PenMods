@@ -197,8 +197,6 @@
 		<file>images/file-icons/suffix-xml.png</file>
 		<file>images/file-icons/suffix-yml.png</file>
 		<file>images/file-icons/suffix-zip.png</file>
-		<file>images/sponsor/avatar.png</file>
-		<file>images/sponsor/qrcode.png</file>
 		<file>language/youdaopen_en_us.qm</file>
 		<file>language/youdaopen_es_es.qm</file>
 		<file>language/youdaopen_zh_cn.qm</file>
@@ -231,6 +229,7 @@
 		<file>qml/assistant/YSpeechVolmn.qml</file>
 		<file>qml/audiopages/FileManagerDrawerLayer.qml</file>
 		<file>qml/audiopages/FileManagerTextViewer.qml</file>
+		<file>qml/audiopages/ImageViewer.qml</file>
 		<file>qml/audiopages/VideoPlayer.qml</file>
 		<file>qml/audiopages/YAudioPageDomainButton.qml</file>
 		<file>qml/audiopages/YBackButtonAudioPage.qml</file>
@@ -467,7 +466,6 @@
 		<file>qml/mod/BingUserMessageCard.qml</file>
 		<file>qml/settingpages/AboutPenMods.qml</file>
 		<file>qml/settingpages/ADBManagePage.qml</file>
-		<file>qml/settingpages/AFDianQrCode.qml</file>
 		<file>qml/settingpages/AISettingPage.qml</file>
 		<file>qml/settingpages/AntiEmbsSettingPage.qml</file>
 		<file>qml/settingpages/AutoScreenOffSetting.qml</file>
@@ -891,5 +889,7 @@
 		<file>qt-project.org/styles/macstyle/images/dockdock-down-16.png</file>
 		<file>qt-project.org/styles/macstyle/images/toolbar-ext.png</file>
 		<file>qt-project.org/styles/macstyle/images/toolbar-ext@2x.png</file>
+		<file>qml/audioplayer/LocalAudioControls.qml</file>
+		<file>qml/audiopages/TextFileSearchPanel.qml</file>
 	</qresource>
 </RCC>

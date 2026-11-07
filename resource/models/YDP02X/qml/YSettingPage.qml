@@ -89,7 +89,7 @@ YPage {
                             case 201:
                                 return "电池信息"
                             case 202:
-                                return "列式数据库"
+                                return "列表加载数量"
                             case 203:
                                 return "日志管理"
                             case 204:

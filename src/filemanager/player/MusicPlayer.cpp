@@ -60,14 +60,22 @@ struct YColumnMediaEntity : public YMediaEntity {
 static_assert(sizeof(YColumnMediaEntity) == 0x68);
 
 void MusicPlayer::play(size_t idx) {
-    if (idx > mPlayList.size() - 1) return;
+    if (idx >= mPlayList.size()) return;
     auto file = mPlayList.at(idx);
     if (!mCurrentPlaying.mIsEnd && mCurrentPlaying.mFile == file) {
         PEN_CALL(void*, "_ZN7YGlobal15showAudioPlayerEv", void*)(YPointer<YGlobal>::getInstance());
         return;
     }
     mCurrentPlaying.setPlaying(idx);
+    mCurrentPlaying.mFile = file;
     _play(file);
+    emit playlistChanged();
+}
+QVariantList MusicPlayer::playlist() const {
+    QVariantList items;
+    for (size_t i = 0; i < mPlayList.size(); ++i)
+        items.push_back(QVariantMap{{"title", mPlayList[i]->fileName()}, {"index", int(i)}});
+    return items;
 }
 
 void MusicPlayer::_play(const std::shared_ptr<QFileInfo>& file) {
@@ -184,6 +192,7 @@ using MusicPlayer = mod::filemanager::MusicPlayer;
 
 PEN_HOOK(void*, _ZN13YMediaManager10clickMediaEi, void* a1, void* a2) {
     MusicPlayer::mIsTakeOver = false;
+    emit MusicPlayer::getInstance().playlistChanged();
     return origin(a1, a2);
 }
 

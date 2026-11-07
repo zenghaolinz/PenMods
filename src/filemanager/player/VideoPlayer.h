@@ -6,24 +6,25 @@
 
 #pragma once
 
+#include "VideoPlayback.h"
+
 namespace mod::filemanager {
 
 class VideoPlayer : public QObject, public Singleton<VideoPlayer> {
     Q_OBJECT
-
-    Q_PROPERTY(QString path READ getOpeningPath);
+    Q_PROPERTY(QObject* playback READ playback CONSTANT)
 
 public:
-    Q_INVOKABLE void open(QString dir);
-
-    QString getOpeningPath();
-
-    Q_INVOKABLE void onStatusChanged(const QString& status);
+    Q_INVOKABLE bool open(const QString& fileName);
+    QObject* playback() { return &mPlayback; }
 
 private:
     friend Singleton<VideoPlayer>;
     explicit VideoPlayer();
+    void setAudioActive(bool active);
 
-    QString mOpeningFileName;
+    VideoPlayback mPlayback;
+    bool mDecoderReady = false;
+    bool mAudioActive = false;
 }; // namespace mod::filemanager
 } // namespace mod::filemanager

@@ -14,14 +14,18 @@ class DeveloperSettings : public QObject, public Singleton<DeveloperSettings> {
     Q_OBJECT
 
     Q_PROPERTY(bool offlineRM READ getOfflineRM WRITE setOfflineRM NOTIFY offlineRMChanged);
+    Q_PROPERTY(bool wifiPageShowIp READ getWifiPageShowIp WRITE setWifiPageShowIp NOTIFY wifiPageShowIpChanged);
 
 public:
     [[nodiscard]] bool getOfflineRM() const;
     void               setOfflineRM(bool);
+    bool getWifiPageShowIp() const { return mWifiPageShowIp; }
+    void setWifiPageShowIp(bool value);
 
 signals:
 
     void offlineRMChanged();
+    void wifiPageShowIpChanged();
 
 private:
     friend Singleton<DeveloperSettings>;
@@ -31,6 +35,7 @@ private:
     json        mCfg;
 
     bool mOfflineRM;
+    bool mWifiPageShowIp = false;
 };
 
 } // namespace mod

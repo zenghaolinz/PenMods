@@ -172,7 +172,9 @@ __attribute__((constructor)) static void BeforeMain() {
 
     // Setup mod instances.
 
-#define INSTANCE(x) x::createInstance();
+#define INSTANCE(x) \
+    spdlog::info("Initializing {}", #x); \
+    x::createInstance();
 
     // base
     INSTANCE(SymDB);
