@@ -2,6 +2,10 @@
 
 适用于 YDP02X 固件 2.1.2。把 AI 对话、听力练习、文本阅读和图像视频预览集中在词典笔的小屏幕上。
 
+## 一键部署
+
+已有 PenMods Loader 的 YDP02X（固件 2.1.2）可以通过 USB 或 Wi-Fi ADB 更新。脚本会下载发布包、校验文件、备份旧版并请求重启词典笔。前往 [Release 下载部署脚本](https://github.com/zenghaolinz/PenMods/releases/tag/v2.0.0-ydp212.3)，按 [部署与恢复说明](docs/deploy-ydp212.md) 操作。
+
 ## AI 助手
 
 <img src="docs/screenshots/ai-home.png" width="320" alt="词典笔主页上的 AI 助手大卡片">
